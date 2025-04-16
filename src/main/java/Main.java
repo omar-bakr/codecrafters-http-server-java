@@ -32,25 +32,25 @@ public class Main {
     }
 
     private static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-            String requestLine = reader.readLine();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+        String requestLine = reader.readLine();
 
-            if (requestLine == null || requestLine.isEmpty()) {
-                throw new IOException("Empty request line");
-            }
-
-            String[] requestLinesSeparated = requestLine.split(" ");
-            if (requestLinesSeparated.length < 3) {
-                throw new IOException("Malformed request line: " + requestLine);
-            }
-
-            String method = requestLinesSeparated[0];
-            String path = requestLinesSeparated[1];
-            String httpVersion = requestLinesSeparated[2];
-
-            Map<String, String> headers = getHttpRequestHeaders(reader);
-            return new HttpRequest(method, path, httpVersion, headers);
+        if (requestLine == null || requestLine.isEmpty()) {
+            throw new IOException("Empty request line");
         }
+
+        String[] requestLinesSeparated = requestLine.split(" ");
+        if (requestLinesSeparated.length < 3) {
+            throw new IOException("Malformed request line: " + requestLine);
+        }
+
+        String method = requestLinesSeparated[0];
+        String path = requestLinesSeparated[1];
+        String httpVersion = requestLinesSeparated[2];
+
+        Map<String, String> headers = getHttpRequestHeaders(reader);
+        return new HttpRequest(method, path, httpVersion, headers);
+
     }
 
     private static Map<String, String> getHttpRequestHeaders(BufferedReader reader) throws IOException {
@@ -108,6 +108,13 @@ public class Main {
 
             } catch (IOException e) {
                 throw new RuntimeException(e);
+            }
+            finally {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
             }
 
 

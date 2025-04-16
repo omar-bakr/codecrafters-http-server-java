@@ -15,35 +15,37 @@ public class Main {
     private static final String USER_AGENT_KEY = "User-Agent";
 
 
+
     public static void main(String[] args) {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.out.println("Logs from your program will appear here!");
 
+        while (true) {
+            try (ServerSocket serverSocket = new ServerSocket(4221)) {
+                // Since the tester restarts your program quite often, setting SO_REUSEADDR
+                // ensures that we don't run into 'Address already in use' errors
+                serverSocket.setReuseAddress(true);
+                Socket socket = serverSocket.accept();
 
-        try (ServerSocket serverSocket = new ServerSocket(4221)) {
-            // Since the tester restarts your program quite often, setting SO_REUSEADDR
-            // ensures that we don't run into 'Address already in use' errors
-            serverSocket.setReuseAddress(true);
-            Socket socket = serverSocket.accept();
+                HttpRequest request = parseHttpRequest(socket.getInputStream());//Parsing the data
 
-            HttpRequest request = parseHttpRequest(socket.getInputStream());//Parsing the data
+                //Check and send response
+                if (request.path.equals("/")) {
+                    socket.getOutputStream().write(buildResponse(200, "OK").getBytes());
+                } else if (request.path.startsWith(ECHO)) {
+                    String body = request.path.substring(ECHO.length());
+                    socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", body).getBytes());
+                } else if (request.path.startsWith("/user-agent")) {
+                    socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", request.headers.get(USER_AGENT_KEY)).getBytes());
 
-            //Check and send response
-            if (request.path.equals("/")) {
-                socket.getOutputStream().write(buildResponse(200, "OK").getBytes());
-            } else if (request.path.startsWith(ECHO)) {
-                String body = request.path.substring(ECHO.length());
-                socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", body).getBytes());
-            } else if (request.path.startsWith("/user-agent")) {
-                socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", request.headers.get(USER_AGENT_KEY)).getBytes());
+                } else {
+                    socket.getOutputStream().write(buildResponse(404, "Not Found").getBytes());
+                }
 
-            } else {
-                socket.getOutputStream().write(buildResponse(404, "Not Found").getBytes());
+                System.out.println("accepted new connection");
+            } catch (IOException e) {
+                System.out.println("IOException: " + e.getMessage());
             }
-
-            System.out.println("accepted new connection");
-        } catch (IOException e) {
-            System.out.println("IOException: " + e.getMessage());
         }
     }
 

@@ -1,15 +1,18 @@
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Main {
     public static final String HTTP_VERSION = "HTTP/1.1 ";
     public static final String ECHO = "/echo/";
     private static final String CRLF = "\r\n";
-    private static final String DOUBLE_CRLF = CRLF + CRLF;
+    private static final String USER_AGENT_KEY = "User-Agent";
 
 
     public static void main(String[] args) {
@@ -21,21 +24,19 @@ public class Main {
             // Since the tester restarts your program quite often, setting SO_REUSEADDR
             // ensures that we don't run into 'Address already in use' errors
             serverSocket.setReuseAddress(true);
-
             Socket socket = serverSocket.accept();
-            //Parsing
-            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            String requestLine = reader.readLine();
-            String[] requestLinesSeparated = requestLine.split(" ");
-            String path = requestLinesSeparated[1];
+
+            HttpRequest request = parseHttpRequest(socket.getInputStream());//Parsing the data
 
             //Check and send response
-            if (path.equals("/")) {
+            if (request.path.equals("/")) {
                 socket.getOutputStream().write(buildResponse(200, "OK").getBytes());
-            } else if (path.startsWith(ECHO)) {
-                String body = path.substring(ECHO.length());
-                socket.getOutputStream().write(
-                        buildResponse(200, "OK", "text/plain", body).getBytes());
+            } else if (request.path.startsWith(ECHO)) {
+                String body = request.path.substring(ECHO.length());
+                socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", body).getBytes());
+            } else if (request.path.startsWith("/user-agent")) {
+                socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", request.headers.get(USER_AGENT_KEY)).getBytes());
+
             } else {
                 socket.getOutputStream().write(buildResponse(404, "Not Found").getBytes());
             }
@@ -44,6 +45,24 @@ public class Main {
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
         }
+    }
+
+    private static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+        String requestLine = reader.readLine();
+        String[] requestLinesSeparated = requestLine.split(" ");
+        String method = requestLinesSeparated[0];
+        String path = requestLinesSeparated[1];
+        String httpVersion = requestLinesSeparated[2];
+        Map<String, String> headers = new HashMap<>();
+        String headerLine;
+        while ((headerLine = reader.readLine()) != null && !headerLine.isEmpty()) {
+            String[] headerParts = headerLine.split(": ");
+            String key = headerParts[0];
+            String value = headerParts[1];
+            headers.put(key, value);
+        }
+        return new HttpRequest(method, path, httpVersion, headers);
     }
 
     public static String buildResponse(int statusCode, String statusMessage, String contentType, String body) {
@@ -57,6 +76,6 @@ public class Main {
 
     public static String buildResponse(int statusCode, String statusMessage) {
         String statusLine = HTTP_VERSION + statusCode + " " + statusMessage + CRLF;
-        return statusLine + DOUBLE_CRLF;
+        return statusLine + CRLF;
     }
 }

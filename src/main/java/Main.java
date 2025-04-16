@@ -30,7 +30,9 @@ public class Main {
             String path = requestLinesSeparated[1];
 
             //Check and send response
-            if (path.startsWith(ECHO)) {
+            if (path.equals("/")) {
+                socket.getOutputStream().write(buildResponse(200, "OK").getBytes());
+            } else if (path.startsWith(ECHO)) {
                 String body = path.substring(ECHO.length());
                 socket.getOutputStream().write(
                         buildResponse(200, "OK", "text/plain", body).getBytes());

@@ -1,15 +1,17 @@
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class Main {
+    public static final String HTTP_VERSION = "HTTP/1.1 ";
+    public static final String ECHO = "/echo/";
+    private static final String CRLF = "\r\n";
+    private static final String DOUBLE_CRLF = CRLF + CRLF;
+
+
     public static void main(String[] args) {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.out.println("Logs from your program will appear here!");
@@ -21,19 +23,38 @@ public class Main {
             serverSocket.setReuseAddress(true);
 
             Socket socket = serverSocket.accept();
+            //Parsing
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             String requestLine = reader.readLine();
             String[] requestLinesSeparated = requestLine.split(" ");
-            String url = requestLinesSeparated[1];
-            if (url.equals("/")) {
-                socket.getOutputStream().write("HTTP/1.1 200 OK\r\n\r\n".getBytes());
+            String path = requestLinesSeparated[1];
+
+            //Check and send response
+            if (path.startsWith(ECHO)) {
+                String body = path.substring(ECHO.length());
+                socket.getOutputStream().write(
+                        buildResponse(200, "OK", "text/plain", body).getBytes());
             } else {
-                socket.getOutputStream().write("HTTP/1.1 404 Not Found\r\n\r\n".getBytes());
+                socket.getOutputStream().write(buildResponse(400, "Not Found").getBytes());
             }
 
             System.out.println("accepted new connection");
         } catch (IOException e) {
             System.out.println("IOException: " + e.getMessage());
         }
+    }
+
+    public static String buildResponse(int statusCode, String statusMessage, String contentType, String body) {
+        String statusLine = HTTP_VERSION + statusCode + " " + statusMessage + CRLF;
+        String contentTypeHeader = "Content-Type: " + contentType + CRLF;
+        String contentLengthHeader = "Content-Length: " + body.getBytes(StandardCharsets.UTF_8).length + CRLF;
+
+        return statusLine + contentTypeHeader + contentLengthHeader + CRLF + body;
+
+    }
+
+    public static String buildResponse(int statusCode, String statusMessage) {
+        String statusLine = HTTP_VERSION + statusCode + " " + statusMessage + CRLF;
+        return statusLine + DOUBLE_CRLF;
     }
 }

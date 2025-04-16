@@ -92,7 +92,7 @@ public class Main {
             try {
                 //Parsing the request
                 HttpRequest request = parseHttpRequest(socket.getInputStream());
-                
+
                 //Check and send response
                 if (request.path.equals("/")) {
                     socket.getOutputStream().write(buildResponse(200, "OK").getBytes());
@@ -108,13 +108,6 @@ public class Main {
 
             } catch (IOException e) {
                 throw new RuntimeException(e);
-            } finally {
-                try {
-                    socket.close();
-                    System.out.println("Disconnected: " + socket.getRemoteSocketAddress());
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
             }
 
 

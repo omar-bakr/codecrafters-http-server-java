@@ -35,7 +35,7 @@ public class Main {
                 socket.getOutputStream().write(
                         buildResponse(200, "OK", "text/plain", body).getBytes());
             } else {
-                socket.getOutputStream().write(buildResponse(400, "Not Found").getBytes());
+                socket.getOutputStream().write(buildResponse(404, "Not Found").getBytes());
             }
 
             System.out.println("accepted new connection");

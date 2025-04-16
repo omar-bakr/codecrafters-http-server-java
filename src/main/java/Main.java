@@ -48,44 +48,22 @@ public class Main {
     }
 
     private static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
-            String requestLine = reader.readLine();
-
-            if (requestLine == null || requestLine.isEmpty()) {
-                throw new IOException("Empty request line");
-            }
-
-            String[] requestLinesSeparated = requestLine.split(" ");
-            if (requestLinesSeparated.length < 3) {
-                throw new IOException("Malformed request line: " + requestLine);
-            }
-
-            String method = requestLinesSeparated[0];
-            String path = requestLinesSeparated[1];
-            String httpVersion = requestLinesSeparated[2];
-
-            Map<String, String> headers = getHttpRequestHeaders(reader);
-            return new HttpRequest(method, path, httpVersion, headers);
-        }
-    }
-
-    private static Map<String, String> getHttpRequestHeaders(BufferedReader reader) throws IOException {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+        String requestLine = reader.readLine();
+        String[] requestLinesSeparated = requestLine.split(" ");
+        String method = requestLinesSeparated[0];
+        String path = requestLinesSeparated[1];
+        String httpVersion = requestLinesSeparated[2];
         Map<String, String> headers = new HashMap<>();
         String headerLine;
         while ((headerLine = reader.readLine()) != null && !headerLine.isEmpty()) {
-            int separatorIndex = headerLine.indexOf(": ");
-            if (separatorIndex != -1) {
-                String key = headerLine.substring(0, separatorIndex);
-                String value = headerLine.substring(separatorIndex + 2);
-                headers.put(key, value);
-            } else {
-                // Optionally, handle malformed headers
-                throw new IOException("Malformed header line: " + headerLine);
-            }
+            String[] headerParts = headerLine.split(": ");
+            String key = headerParts[0];
+            String value = headerParts[1];
+            headers.put(key, value);
         }
-        return headers;
+        return new HttpRequest(method, path, httpVersion, headers);
     }
-
 
     public static String buildResponse(int statusCode, String statusMessage, String contentType, String body) {
         String statusLine = HTTP_VERSION + statusCode + " " + statusMessage + CRLF;
@@ -98,7 +76,6 @@ public class Main {
 
     public static String buildResponse(int statusCode, String statusMessage) {
         String statusLine = HTTP_VERSION + statusCode + " " + statusMessage + CRLF;
-
         return statusLine + CRLF;
     }
 }

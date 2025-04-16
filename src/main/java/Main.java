@@ -21,12 +21,11 @@ public class Main {
             serverSocket.setReuseAddress(true);
 
             Socket socket = serverSocket.accept();
-            InputStream inputStream = socket.getInputStream();
-            String request = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
-            String[] requestSeparated = request.split("\r\n");
-            String[] requestLines = requestSeparated[0].split(" ");
-            String path = requestLines[1];
-            if (path.equals("/")) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            String requestLine = reader.readLine();
+            String[] requestLinesSeparated = requestLine.split(" ");
+            String url = requestLinesSeparated[1];
+            if (url.equals("/")) {
                 socket.getOutputStream().write("HTTP/1.1 200 OK\r\n\r\n".getBytes());
             } else {
                 socket.getOutputStream().write("HTTP/1.1 404 Not Found\r\n\r\n".getBytes());

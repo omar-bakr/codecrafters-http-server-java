@@ -1,7 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
 
-class HttpRequest {
+public class HttpRequest {
     String method;
     String path;
     String version;

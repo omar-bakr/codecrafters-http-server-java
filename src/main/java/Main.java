@@ -153,7 +153,7 @@ public class Main {
                         String fileName = request.path.substring(FILES_ROUTE.length());
                         Path path = Path.of(filesPath, fileName);
                         Files.writeString(path, request.body);
-                        out.write(buildResponse(201, " Created").getBytes());
+                        out.write(buildResponse(201, "Created").getBytes());
                     }
                 }
 

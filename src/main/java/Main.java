@@ -1,24 +1,27 @@
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Main {
     public static final String HTTP_VERSION = "HTTP/1.1 ";
-    public static final String ECHO = "/echo/";
+    public static final String ECHO_ROUTE = "/echo/";
     private static final String CRLF = "\r\n";
     private static final String USER_AGENT_KEY = "User-Agent";
     public static final int PORT = 4221;
+    public static final String FILES_ROUTE = "/files/";
+    public static final String USER_AGENT_ROUTE = "/user-agent";
+    public static String filesPath;
 
 
     public static void main(String[] args) {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.out.println("Logs from your program will appear here!");
+        getFilePathIfExists(args);
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             while (true) {
@@ -29,6 +32,11 @@ public class Main {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private static void getFilePathIfExists(String[] args) {
+        if (args.length == 2 && args[0].equals("--directory"))
+            filesPath = args[1];
     }
 
     private static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
@@ -92,24 +100,38 @@ public class Main {
             try {
                 //Parsing the request
                 HttpRequest request = parseHttpRequest(socket.getInputStream());
+                OutputStream out = socket.getOutputStream();
 
                 //Check and send response
                 if (request.path.equals("/")) {
-                    socket.getOutputStream().write(buildResponse(200, "OK").getBytes());
-                } else if (request.path.startsWith(ECHO)) {
-                    String body = request.path.substring(ECHO.length());
-                    socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", body).getBytes());
-                } else if (request.path.startsWith("/user-agent")) {
-                    socket.getOutputStream().write(buildResponse(200, "OK", "text/plain", request.headers.get(USER_AGENT_KEY)).getBytes());
+                    out.write(buildResponse(200, "OK").getBytes());
+                } else if (request.path.startsWith(ECHO_ROUTE)) {
+                    String body = request.path.substring(ECHO_ROUTE.length());
+                    out.write(buildResponse(200, "OK", "text/plain", body).getBytes());
+                } else if (request.path.startsWith(USER_AGENT_ROUTE)) {
+                    out.write(buildResponse(200, "OK", "text/plain", request.headers.get(USER_AGENT_KEY)).getBytes());
+                } else if (request.path.startsWith(FILES_ROUTE)) {
+                    String fileName = request.path.substring(FILES_ROUTE.length());
+                    Path path = Path.of(filesPath, fileName);
+                    boolean exists = Files.exists(path);
+                    boolean isFile = Files.isRegularFile(path);
+
+                    if (exists && isFile) {
+                        String fileContent = Files.readString(path);
+                        out.write(buildResponse(200, "OK", "application/octet-stream", fileContent).getBytes());
+                    } else {
+                        out.write(buildResponse(404, "Not Found").getBytes());
+
+                    }
+
 
                 } else {
-                    socket.getOutputStream().write(buildResponse(404, "Not Found").getBytes());
+                    out.write(buildResponse(404, "Not Found").getBytes());
                 }
 
             } catch (IOException e) {
                 throw new RuntimeException(e);
-            }
-            finally {
+            } finally {
                 try {
                     socket.close();
                 } catch (IOException e) {

@@ -8,10 +8,11 @@ class HttpRequest {
     Map<String, String> headers = new HashMap<>();
     String body;
 
-    public HttpRequest(String method, String path, String version, Map<String, String> headers) {
+    public HttpRequest(String method, String path, String version, Map<String, String> headers, String body) {
         this.method = method;
         this.path = path;
         this.version = version;
         this.headers = headers;
+        this.body = body;
     }
 }

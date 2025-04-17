@@ -21,7 +21,9 @@ public class Main {
     public static void main(String[] args) {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.out.println("Logs from your program will appear here!");
-        getFilePathIfExists(args);
+
+        //Getting the files directory from cmd args
+        parseFilePathIfExists(args);
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             while (true) {
@@ -34,7 +36,7 @@ public class Main {
         }
     }
 
-    private static void getFilePathIfExists(String[] args) {
+    private static void parseFilePathIfExists(String[] args) {
         if (args.length == 2 && args[0].equals("--directory"))
             filesPath = args[1];
     }
@@ -52,13 +54,31 @@ public class Main {
             throw new IOException("Malformed request line: " + requestLine);
         }
 
+        //Request line
         String method = requestLinesSeparated[0];
         String path = requestLinesSeparated[1];
         String httpVersion = requestLinesSeparated[2];
 
+        //Headers
         Map<String, String> headers = getHttpRequestHeaders(reader);
-        return new HttpRequest(method, path, httpVersion, headers);
 
+        //Body
+        int requestBodySize = Integer.parseInt(headers.getOrDefault("Content-Length", "0"));
+        String body = getHttpRequestBody(reader, requestBodySize);
+
+        return new HttpRequest(method, path, httpVersion, headers, body);
+
+    }
+
+    private static String getHttpRequestBody(BufferedReader reader, int requestBodySize) throws IOException {
+        int ch;
+        int index = 0;
+        StringBuilder sb = new StringBuilder();
+        while (index < requestBodySize && (ch = reader.read()) != -1) {
+            sb.append((char) ch);
+            index++;
+        }
+        return sb.toString();
     }
 
     private static Map<String, String> getHttpRequestHeaders(BufferedReader reader) throws IOException {
@@ -103,31 +123,40 @@ public class Main {
                 OutputStream out = socket.getOutputStream();
 
                 //Check and send response
-                if (request.path.equals("/")) {
-                    out.write(buildResponse(200, "OK").getBytes());
-                } else if (request.path.startsWith(ECHO_ROUTE)) {
-                    String body = request.path.substring(ECHO_ROUTE.length());
-                    out.write(buildResponse(200, "OK", "text/plain", body).getBytes());
-                } else if (request.path.startsWith(USER_AGENT_ROUTE)) {
-                    out.write(buildResponse(200, "OK", "text/plain", request.headers.get(USER_AGENT_KEY)).getBytes());
-                } else if (request.path.startsWith(FILES_ROUTE)) {
-                    String fileName = request.path.substring(FILES_ROUTE.length());
-                    Path path = Path.of(filesPath, fileName);
-                    boolean exists = Files.exists(path);
-                    boolean isFile = Files.isRegularFile(path);
+                if (request.method.equals("GET")) {
+                    if (request.path.equals("/")) {
+                        out.write(buildResponse(200, "OK").getBytes());
+                    } else if (request.path.startsWith(ECHO_ROUTE)) {
+                        String body = request.path.substring(ECHO_ROUTE.length());
+                        out.write(buildResponse(200, "OK", "text/plain", body).getBytes());
+                    } else if (request.path.startsWith(USER_AGENT_ROUTE)) {
+                        out.write(buildResponse(200, "OK", "text/plain", request.headers.get(USER_AGENT_KEY)).getBytes());
+                    } else if (request.path.startsWith(FILES_ROUTE) && filesPath != null) {
+                        String fileName = request.path.substring(FILES_ROUTE.length());
+                        Path path = Path.of(filesPath, fileName);
+                        boolean exists = Files.exists(path);
+                        boolean isFile = Files.isRegularFile(path);
 
-                    if (exists && isFile) {
-                        String fileContent = Files.readString(path);
-                        out.write(buildResponse(200, "OK", "application/octet-stream", fileContent).getBytes());
+                        if (exists && isFile) {
+                            String fileContent = Files.readString(path);
+                            out.write(buildResponse(200, "OK", "application/octet-stream", fileContent).getBytes());
+                        } else {
+                            out.write(buildResponse(404, "Not Found").getBytes());
+                        }
+
+
                     } else {
                         out.write(buildResponse(404, "Not Found").getBytes());
-
                     }
-
-
-                } else {
-                    out.write(buildResponse(404, "Not Found").getBytes());
+                } else if (request.method.equals("POST")) {
+                    if (request.path.startsWith(FILES_ROUTE) && !request.body.isEmpty()) {
+                        String fileName = request.path.substring(FILES_ROUTE.length());
+                        Path path = Path.of(filesPath, fileName);
+                        Files.writeString(path, request.body);
+                        out.write(buildResponse(201, " Created").getBytes());
+                    }
                 }
+
 
             } catch (IOException e) {
                 throw new RuntimeException(e);

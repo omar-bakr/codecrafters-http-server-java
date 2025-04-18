@@ -2,7 +2,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class HttpRequestHandler {
     private static final String ECHO_ROUTE = "/echo/";
@@ -72,12 +75,11 @@ public class HttpRequestHandler {
     }
 
     private String getValidEncoding(String requestEncoding) {
-        for (String supportedEncoding : SUPPORTED_ENCODINGS) {
-            if (requestEncoding.equals(supportedEncoding)) {
-                return requestEncoding;
-            }
-        }
-        return null;
+        Set<String> requestEncodings = Arrays.stream(requestEncoding.split(",")).collect(Collectors.toSet());
+        return SUPPORTED_ENCODINGS.stream()
+                .filter(requestEncodings::contains)
+                .findFirst()
+                .orElse(null);
     }
 
     private void handleUserAgentRoute(HttpRequest request) {

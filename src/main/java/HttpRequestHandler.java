@@ -2,12 +2,14 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 public class HttpRequestHandler {
     private static final String ECHO_ROUTE = "/echo/";
     private static final String USER_AGENT_ROUTE = "/user-agent";
     private static final String FILES_ROUTE = "/files/";
     private static final String USER_AGENT_KEY = "User-Agent";
+    private static final List<String> SUPPORTED_ENCODINGS = List.of("gzip");
 
     private final String filesPath;
     private final OutputStream out;
@@ -64,12 +66,25 @@ public class HttpRequestHandler {
 
     private void handleEchoRoute(HttpRequest request) {
         String body = request.path.substring(ECHO_ROUTE.length());
-        sendResponse(HttpResponse.withBody(200, "OK", "text/plain", body));
+        String requestEncoding = request.headers.getOrDefault("Accept-Encoding", "");
+        String contentEncoding = getValidEncoding(requestEncoding);
+        sendResponse(HttpResponse.withBody(200, "OK", "text/plain", contentEncoding, body));
+    }
+
+    private String getValidEncoding(String requestEncoding) {
+        for (String supportedEncoding : SUPPORTED_ENCODINGS) {
+            if (requestEncoding.equals(supportedEncoding)) {
+                return requestEncoding;
+            }
+        }
+        return null;
     }
 
     private void handleUserAgentRoute(HttpRequest request) {
         String userAgent = request.headers.getOrDefault(USER_AGENT_KEY, "");
-        sendResponse(HttpResponse.withBody(200, "OK", "text/plain", userAgent));
+        String requestEncoding = request.headers.getOrDefault("Accept-Encoding", "");
+        String contentEncoding = getValidEncoding(requestEncoding);
+        sendResponse(HttpResponse.withBody(200, "OK", "text/plain", contentEncoding, userAgent));
     }
 
     private void handleFilesRoute(HttpRequest request) {
@@ -89,7 +104,10 @@ public class HttpRequestHandler {
         try {
             byte[] fileBytes = Files.readAllBytes(filePath);
             String content = new String(fileBytes);
-            sendResponse(HttpResponse.withBody(200, "OK", "application/octet-stream", content));
+            String requestEncoding = request.headers.getOrDefault("Accept-Encoding", "");
+            String contentEncoding = getValidEncoding(requestEncoding);
+
+            sendResponse(HttpResponse.withBody(200, "OK", "application/octet-stream", contentEncoding, content));
         } catch (IOException e) {
             sendResponse(HttpResponse.statusOnly(500, "Internal Server Error"));
         }

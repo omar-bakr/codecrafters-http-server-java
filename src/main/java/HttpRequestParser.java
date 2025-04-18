@@ -1,13 +1,10 @@
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
 
 public class HttpRequestParser {
-    public static HttpRequest parseHttpRequest(InputStream inputStream) throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+    public static HttpRequest parseHttpRequest(BufferedReader reader) throws IOException {
         String requestLine = reader.readLine();
 
         if (requestLine == null || requestLine.isEmpty()) {

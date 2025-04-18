@@ -26,11 +26,12 @@ public class Main {
     }
 
     private static void handleClient(Socket socket) {
-        try (socket; InputStream input = socket.getInputStream();
+        try (socket;
+             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              OutputStream output = socket.getOutputStream()) {
 
             //Parse
-            HttpRequest request = HttpRequestParser.parseHttpRequest(input);
+            HttpRequest request = HttpRequestParser.parseHttpRequest(reader);
 
             //Handle
             HttpRequestHandler handler = new HttpRequestHandler(filesPath, output);

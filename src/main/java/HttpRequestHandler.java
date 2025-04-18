@@ -76,8 +76,8 @@ public class HttpRequestHandler {
 
     private String getValidEncoding(String requestEncoding) {
         Set<String> requestEncodings = Arrays.stream(requestEncoding.split(",")).collect(Collectors.toSet());
-        return SUPPORTED_ENCODINGS.stream()
-                .filter(requestEncodings::contains)
+        return requestEncodings.stream()
+                .filter(SUPPORTED_ENCODINGS::contains)
                 .findFirst()
                 .orElse(null);
     }

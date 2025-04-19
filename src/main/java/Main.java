@@ -30,7 +30,7 @@ public class Main {
              BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              OutputStream output = socket.getOutputStream()) {
 
-            while (true) {
+            while (!socket.isClosed()) {
 
                 //Parse
                 HttpRequest request = HttpRequestParser.parseHttpRequest(reader);
@@ -41,6 +41,7 @@ public class Main {
                 handler.handleRequest(request);
 
 
+                //Break to close the connection
                 String connectionHeader = request.headers.getOrDefault("Connection", "");
                 boolean shouldClose = "close".equalsIgnoreCase(connectionHeader);
                 if (shouldClose) {

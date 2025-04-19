@@ -30,12 +30,25 @@ public class Main {
              BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              OutputStream output = socket.getOutputStream()) {
 
-            //Parse
-            HttpRequest request = HttpRequestParser.parseHttpRequest(reader);
+            while (true) {
 
-            //Handle
-            HttpRequestHandler handler = new HttpRequestHandler(filesPath, output);
-            handler.handleRequest(request);
+                //Parse
+                HttpRequest request = HttpRequestParser.parseHttpRequest(reader);
+                if (request == null) return;
+
+                //Handle
+                HttpRequestHandler handler = new HttpRequestHandler(filesPath, output);
+                handler.handleRequest(request);
+
+
+                String connectionHeader = request.headers.getOrDefault("Connection", "");
+                boolean shouldClose = "close".equalsIgnoreCase(connectionHeader);
+                if (shouldClose) {
+                    break;
+                }
+
+
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

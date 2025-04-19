@@ -8,7 +8,7 @@ public class HttpRequestParser {
         String requestLine = reader.readLine();
 
         if (requestLine == null || requestLine.isEmpty()) {
-            throw new RuntimeException("Empty request line");
+            return null;
         }
 
         String[] requestLinesSeparated = requestLine.split(" ");

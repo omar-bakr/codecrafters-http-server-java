@@ -31,7 +31,7 @@ public class HttpRequestHandler {
                 handlePostRequest(request);
                 break;
             default:
-                sendResponse(HttpResponse.statusOnly(405, "Method Not Allowed"));
+                sendResponse(buildStatusOnlyResponse(405, "Method Not Allowed", request));
         }
     }
 
@@ -46,12 +46,12 @@ public class HttpRequestHandler {
             Path filePath = Path.of(filesPath, fileName);
             try {
                 Files.writeString(filePath, request.body);
-                sendResponse(HttpResponse.statusOnly(201, "Created"));
+                sendResponse(buildStatusOnlyResponse(201, "Created", request));
             } catch (IOException e) {
-                handleServerError(e);
+                handleServerError(e, request);
             }
         } else {
-            sendResponse(HttpResponse.statusOnly(400, "Bad Request"));
+            sendResponse(buildStatusOnlyResponse(400, "Bad Request", request));
         }
     }
 
@@ -64,29 +64,31 @@ public class HttpRequestHandler {
     }
 
     private void handleRootRoute(HttpRequest request) {
-        sendResponse(HttpResponse.statusOnly(200, "OK"));
+        sendResponse(buildStatusOnlyResponse(200, "OK", request));
     }
 
     private void handleEchoRoute(HttpRequest request) {
         String body = request.path.substring(ECHO_ROUTE.length());
-        String requestEncoding = request.headers.getOrDefault("Accept-Encoding", "");
-        String contentEncoding = getValidEncoding(requestEncoding);
-        sendResponse(HttpResponse.withBody(200, "OK", "text/plain", contentEncoding, body));
-    }
+        String contentEncoding = getValidEncoding(request.headers.getOrDefault("Accept-Encoding", ""));
 
-    private String getValidEncoding(String requestEncoding) {
-        Set<String> requestEncodings = Arrays.stream(requestEncoding.split(",")).map(String::strip).collect(Collectors.toSet());
-        return requestEncodings.stream()
-                .filter(SUPPORTED_ENCODINGS::contains)
-                .findFirst()
-                .orElse(null);
+        HttpResponse.Builder builder = new HttpResponse.Builder()
+                .status(200, "OK")
+                .header("Connection", getConnectionHeader(request))
+                .body(body, "text/plain", contentEncoding);
+
+        sendResponse(builder.build());
     }
 
     private void handleUserAgentRoute(HttpRequest request) {
         String userAgent = request.headers.getOrDefault(USER_AGENT_KEY, "");
-        String requestEncoding = request.headers.getOrDefault("Accept-Encoding", "");
-        String contentEncoding = getValidEncoding(requestEncoding);
-        sendResponse(HttpResponse.withBody(200, "OK", "text/plain", contentEncoding, userAgent));
+        String contentEncoding = getValidEncoding(request.headers.getOrDefault("Accept-Encoding", ""));
+
+        HttpResponse.Builder builder = new HttpResponse.Builder()
+                .status(200, "OK")
+                .header("Connection", getConnectionHeader(request))
+                .body(userAgent, "text/plain", contentEncoding);
+
+        sendResponse(builder.build());
     }
 
     private void handleFilesRoute(HttpRequest request) {
@@ -106,28 +108,51 @@ public class HttpRequestHandler {
         try {
             byte[] fileBytes = Files.readAllBytes(filePath);
             String content = new String(fileBytes);
-            String requestEncoding = request.headers.getOrDefault("Accept-Encoding", "");
-            String contentEncoding = getValidEncoding(requestEncoding);
+            String contentEncoding = getValidEncoding(request.headers.getOrDefault("Accept-Encoding", ""));
 
-            sendResponse(HttpResponse.withBody(200, "OK", "application/octet-stream", contentEncoding, content));
+            HttpResponse.Builder builder = new HttpResponse.Builder()
+                    .status(200, "OK")
+                    .header("Connection", getConnectionHeader(request))
+                    .body(content, "application/octet-stream", contentEncoding);
+
+            sendResponse(builder.build());
         } catch (IOException e) {
-            sendResponse(HttpResponse.statusOnly(500, "Internal Server Error"));
+            handleServerError(e, request);
         }
     }
 
     private void handleNotFound(HttpRequest request) {
-        sendResponse(HttpResponse.statusOnly(404, "Not Found"));
+        sendResponse(buildStatusOnlyResponse(404, "Not Found", request));
     }
 
-    private void handleServerError(Exception e) {
-        sendResponse(HttpResponse.statusOnly(500, "Internal Server Error"));
+    private void handleServerError(Exception e, HttpRequest request) {
+        e.printStackTrace();
+        sendResponse(buildStatusOnlyResponse(500, "Internal Server Error", request));
+    }
+
+    private String getValidEncoding(String requestEncoding) {
+        Set<String> requestEncodings = Arrays.stream(requestEncoding.split(",")).map(String::strip).collect(Collectors.toSet());
+        return requestEncodings.stream()
+                .filter(SUPPORTED_ENCODINGS::contains)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String getConnectionHeader(HttpRequest request) {
+        return "close".equalsIgnoreCase(request.headers.getOrDefault("Connection", "close")) ? "close" : "keep-alive";
+    }
+
+    private HttpResponse buildStatusOnlyResponse(int code, String text, HttpRequest request) {
+        return new HttpResponse.Builder()
+                .status(code, text)
+                .header("Connection", getConnectionHeader(request))
+                .build();
     }
 
     private void sendResponse(HttpResponse response) {
         try {
             out.write(response.getBytes());
             out.flush();
-
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

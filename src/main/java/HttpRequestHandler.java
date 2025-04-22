@@ -5,9 +5,13 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class HttpRequestHandler {
+    private static final Logger logger = Logger.getLogger(HttpRequestHandler.class.getName());
+
     private static final String ECHO_ROUTE = "/echo/";
     private static final String USER_AGENT_ROUTE = "/user-agent";
     private static final String FILES_ROUTE = "/files/";
@@ -23,6 +27,7 @@ public class HttpRequestHandler {
     }
 
     public void handleRequest(HttpRequest request) throws IOException {
+        logger.info("Handling request: " + request.method + " " + request.path);
         switch (request.method) {
             case "GET":
                 handleGetRequest(request);
@@ -31,6 +36,7 @@ public class HttpRequestHandler {
                 handlePostRequest(request);
                 break;
             default:
+                logger.warning("Unsupported HTTP method: " + request.method);
                 sendResponse(buildStatusOnlyResponse(405, "Method Not Allowed", request));
         }
     }
@@ -41,16 +47,19 @@ public class HttpRequestHandler {
     }
 
     private void handlePostRequest(HttpRequest request) {
-        if (filesPath != null && request.path.startsWith(FILES_ROUTE) && !request.body.isEmpty()) {
+        if (filesPath != null && !filesPath.isBlank() && request.path.startsWith(FILES_ROUTE) && !request.body.isEmpty()) {
             String fileName = request.path.substring(FILES_ROUTE.length());
             Path filePath = Path.of(filesPath, fileName);
             try {
                 Files.writeString(filePath, request.body);
+                logger.info("File created: " + filePath);
                 sendResponse(buildStatusOnlyResponse(201, "Created", request));
             } catch (IOException e) {
+                logger.log(Level.SEVERE, "Failed to write file: " + filePath, e);
                 handleServerError(e, request);
             }
         } else {
+            logger.warning("Bad POST request to: " + request.path);
             sendResponse(buildStatusOnlyResponse(400, "Bad Request", request));
         }
     }
@@ -64,11 +73,13 @@ public class HttpRequestHandler {
     }
 
     private void handleRootRoute(HttpRequest request) {
+        logger.info("Handling root route");
         sendResponse(buildStatusOnlyResponse(200, "OK", request));
     }
 
     private void handleEchoRoute(HttpRequest request) {
         String body = request.path.substring(ECHO_ROUTE.length());
+        logger.info("Echo route received with body: " + body);
         String contentEncoding = getValidEncoding(request.headers.getOrDefault("Accept-Encoding", ""));
 
         HttpResponse.Builder builder = new HttpResponse.Builder()
@@ -81,6 +92,7 @@ public class HttpRequestHandler {
 
     private void handleUserAgentRoute(HttpRequest request) {
         String userAgent = request.headers.getOrDefault(USER_AGENT_KEY, "");
+        logger.info("User-Agent route: " + userAgent);
         String contentEncoding = getValidEncoding(request.headers.getOrDefault("Accept-Encoding", ""));
 
         HttpResponse.Builder builder = new HttpResponse.Builder()
@@ -92,7 +104,8 @@ public class HttpRequestHandler {
     }
 
     private void handleFilesRoute(HttpRequest request) {
-        if (filesPath == null) {
+        if (filesPath == null || filesPath.isBlank()) {
+            logger.warning("File route accessed but filesPath is not set");
             handleNotFound(request);
             return;
         }
@@ -101,12 +114,14 @@ public class HttpRequestHandler {
         Path filePath = Path.of(filesPath, fileName);
 
         if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            logger.warning("Requested file not found: " + filePath);
             handleNotFound(request);
             return;
         }
 
         try {
             byte[] fileBytes = Files.readAllBytes(filePath);
+            logger.info("Serving file: " + filePath);
             String content = new String(fileBytes);
             String contentEncoding = getValidEncoding(request.headers.getOrDefault("Accept-Encoding", ""));
 
@@ -117,16 +132,18 @@ public class HttpRequestHandler {
 
             sendResponse(builder.build());
         } catch (IOException e) {
+            logger.log(Level.SEVERE, "Error reading file: " + filePath, e);
             handleServerError(e, request);
         }
     }
 
     private void handleNotFound(HttpRequest request) {
+        logger.info("Route not found: " + request.path);
         sendResponse(buildStatusOnlyResponse(404, "Not Found", request));
     }
 
     private void handleServerError(Exception e, HttpRequest request) {
-        e.printStackTrace();
+        logger.log(Level.SEVERE, "Internal server error while handling request: " + request.path, e);
         sendResponse(buildStatusOnlyResponse(500, "Internal Server Error", request));
     }
 
@@ -154,7 +171,8 @@ public class HttpRequestHandler {
             out.write(response.getBytes());
             out.flush();
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.log(Level.SEVERE, "Failed to send response", e);
+            throw new RuntimeException(e.getMessage());
         }
     }
 }
